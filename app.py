@@ -1,4 +1,4 @@
-# Expensify Lite v2 – Smart Expense Tracker with Secure Manual Login + Daily/Monthly Summary + CSV Save + User Tracker + Sign-Up
+# Expensify Lite v2 – Enhanced UI with CSS Styling
 
 import streamlit as st
 import pandas as pd
@@ -7,9 +7,29 @@ import pytz
 import os
 
 # -------------------------
-# Page Setup
+# Page Setup & Custom CSS
 # -------------------------
-st.set_page_config(page_title="Expensify Lite", page_icon="💸")
+st.set_page_config(page_title="Expensify Lite", page_icon="💸", layout="centered")
+
+st.markdown("""
+    <style>
+    body {
+        background-color: #f8f9fa;
+    }
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Segoe UI', sans-serif;
+        color: #333333;
+    }
+    .stTextInput > label, .stNumberInput > label, .stSelectbox > label {
+        font-weight: 500;
+        font-size: 16px;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # Timezone: India Standard Time
 india_timezone = pytz.timezone('Asia/Kolkata')
@@ -33,9 +53,9 @@ if "users_db" not in st.session_state:
 # SIGN-UP PAGE
 # -------------------------
 if not st.session_state.logged_in:
-    st.title("🔐 Login or Sign Up to Expensify Lite")
+    st.markdown("""<h2 style='text-align:center;'>Welcome to <span style='color:#27ae60;'>Expensify Lite</span></h2>""", unsafe_allow_html=True)
 
-    tabs = st.tabs(["Login", "Sign Up"])
+    tabs = st.tabs(["🔑 Login", "📝 Sign Up"])
 
     with tabs[0]:
         email = st.text_input("Email", key="login_email").strip()
@@ -47,14 +67,12 @@ if not st.session_state.logged_in:
                     st.session_state.logged_in = True
                     st.session_state.user = email
 
-                    # Load previous data if exists
                     file_path = f"expenses/{email.replace('@', '_at_')}.csv"
                     if os.path.exists(file_path):
                         st.session_state.expenses = pd.read_csv(file_path).to_dict("records")
                     else:
                         st.session_state.expenses = []
 
-                    # User tracking log
                     user_log_path = "users/expensify_users.csv"
                     os.makedirs("users", exist_ok=True)
 
@@ -67,13 +85,12 @@ if not st.session_state.logged_in:
 
                     if os.path.exists(user_log_path):
                         user_df = pd.read_csv(user_log_path)
-                        user_df = user_df[user_df["Email"] != email]  # Remove old entry
+                        user_df = user_df[user_df["Email"] != email]
                         user_df = pd.concat([user_df, pd.DataFrame([login_data])], ignore_index=True)
                     else:
                         user_df = pd.DataFrame([login_data])
 
                     user_df.to_csv(user_log_path, index=False)
-
                     st.success(f"✅ Welcome, {email}")
                     st.rerun()
                 else:
@@ -99,24 +116,24 @@ if not st.session_state.logged_in:
 # -------------------------
 # MAIN APP AFTER LOGIN
 # -------------------------
-st.title("💸 Expensify Lite")
-st.markdown(f"**👤 Logged in as:** `{st.session_state.user}`")
-st.markdown(f"**📅 Date:** {now.strftime('%d-%m-%Y')}")
-st.markdown(f"**🕒 Time (IST):** {now.strftime('%I:%M:%S %p')}")
+st.markdown("""<h2 style='margin-bottom:0;'>💸 Expensify Lite</h2>""", unsafe_allow_html=True)
+st.caption(f"👤 Logged in as: `{st.session_state.user}`")
+st.caption(f"📅 Date: {now.strftime('%d-%m-%Y')} | 🕒 Time (IST): {now.strftime('%I:%M:%S %p')}")
+
+file_path = f"expenses/{st.session_state.user.replace('@', '_at_')}.csv"
 
 # -------------------------
 # Add Expense Form
 # -------------------------
-file_path = f"expenses/{st.session_state.user.replace('@', '_at_')}.csv"
-
+st.markdown("""<h4 style='margin-top:30px;'>➕ Add a New Expense</h4>""", unsafe_allow_html=True)
 with st.form("Add Expense"):
     col1, col2 = st.columns([3, 1])
     with col1:
-        note = st.text_input("📝 What did you spend on?")
+        note = st.text_input("What did you spend on?")
     with col2:
-        amount = st.number_input("₹ Amount", min_value=1.0, step=0.5)
+        amount = st.number_input("Amount (₹)", min_value=1.0, step=0.5)
 
-    category = st.selectbox("📁 Category", ["Food", "Travel", "Shopping", "Bills", "Health", "Other"])
+    category = st.selectbox("Category", ["Food", "Travel", "Shopping", "Bills", "Health", "Other"])
     submitted = st.form_submit_button("Add")
 
     if submitted and note and amount:
@@ -129,7 +146,6 @@ with st.form("Add Expense"):
         })
         st.success("✅ Expense added!")
 
-        # Save to CSV
         df_all = pd.DataFrame(st.session_state.expenses)
         os.makedirs("expenses", exist_ok=True)
         df_all.to_csv(file_path, index=False)
@@ -137,7 +153,7 @@ with st.form("Add Expense"):
 # -------------------------
 # Filter & Search
 # -------------------------
-search = st.text_input("🔎 Search your expenses")
+search = st.text_input("Search expenses by keyword")
 if search:
     filtered = [e for e in st.session_state.expenses if search.lower() in e["Note"].lower()]
 else:
@@ -148,35 +164,30 @@ else:
 # -------------------------
 if filtered:
     df = pd.DataFrame(filtered)
-    st.write("🧳️ **Your Expenses**")
+    st.markdown("<h4>Your Expenses</h4>", unsafe_allow_html=True)
     st.dataframe(df, use_container_width=True)
 
     total = sum(e["Amount"] for e in filtered)
     st.metric("💰 Total Spent", f"₹{total:.2f}")
 
     cat_df = df.groupby("Category")["Amount"].sum().reset_index()
-    st.subheader("📊 Spend by Category")
+    st.subheader("Spend by Category")
     st.bar_chart(cat_df, x="Category", y="Amount")
 
-    # --- DAILY SPEND SUMMARY ---
     df["Date"] = pd.to_datetime(df["Date"])
     daily = df.groupby(df["Date"].dt.date)["Amount"].sum().reset_index()
-    st.subheader("🗓️ Daily Spend Summary")
+    st.subheader("Daily Spend Summary")
     st.dataframe(daily, use_container_width=True)
     st.bar_chart(daily, x="Date", y="Amount")
 
-    # --- MONTHLY SPEND SUMMARY ---
     df["Month"] = df["Date"].dt.strftime('%B %Y')
     monthly = df.groupby("Month")["Amount"].sum().reset_index()
-    st.subheader("📆 Monthly Spend Summary")
+    st.subheader("Monthly Spend Summary")
     st.dataframe(monthly, use_container_width=True)
     st.bar_chart(monthly, x="Month", y="Amount")
 
-    # --- DOWNLOAD BUTTON ---
     csv = df.to_csv(index=False).encode()
-    st.download_button("⬇️ Download CSV", data=csv,
-                       file_name=f"{st.session_state.user}_expenses.csv",
-                       mime="text/csv")
+    st.download_button("⬇️ Download CSV", data=csv, file_name=f"{st.session_state.user}_expenses.csv", mime="text/csv")
 else:
     st.info("No expenses yet.")
 
@@ -189,17 +200,3 @@ if st.sidebar.button("Logout"):
     st.session_state.user = None
     st.session_state.expenses = []
     st.rerun()
-   
-
-
-
-                
-
-       
-
-   
-       
-   
-
-           
-
