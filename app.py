@@ -1,4 +1,4 @@
-# Expensify Lite v2 – Smart Expense Tracker with Login + Daily/Monthly Summary + CSV Save
+# Expensify Lite v2 – Smart Expense Tracker with Secure Manual Login + Daily/Monthly Summary + CSV Save + User Tracker
 
 import streamlit as st
 import pandas as pd
@@ -23,6 +23,12 @@ if "logged_in" not in st.session_state:
     st.session_state.user = None
     st.session_state.expenses = []
 
+# Dummy user database (replace with secure DB or OAuth later)
+users_db = {
+    "zaina@gmail.com": "zaina123",
+    "test@example.com": "test123"
+}
+
 # -------------------------
 # LOGIN PAGE
 # -------------------------
@@ -33,21 +39,44 @@ if not st.session_state.logged_in:
     password = st.text_input("Password", type="password").strip()
 
     if st.button("Login"):
-        if email and password:
-            st.session_state.logged_in = True
-            st.session_state.user = email
+        if email in users_db:
+            if password == users_db[email]:
+                st.session_state.logged_in = True
+                st.session_state.user = email
 
-            # Load previous data if exists
-            file_path = f"expenses/{email.replace('@', '_at_')}.csv"
-            if os.path.exists(file_path):
-                st.session_state.expenses = pd.read_csv(file_path).to_dict("records")
+                # Load previous data if exists
+                file_path = f"expenses/{email.replace('@', '_at_')}.csv"
+                if os.path.exists(file_path):
+                    st.session_state.expenses = pd.read_csv(file_path).to_dict("records")
+                else:
+                    st.session_state.expenses = []
+
+                # User tracking log
+                user_log_path = "users/expensify_users.csv"
+                os.makedirs("users", exist_ok=True)
+
+                login_data = {
+                    "Email": email,
+                    "Login Time": now.strftime("%Y-%m-%d %I:%M:%S %p"),
+                    "Total Expenses": len(st.session_state.expenses),
+                    "Last Updated": now.strftime("%Y-%m-%d")
+                }
+
+                if os.path.exists(user_log_path):
+                    user_df = pd.read_csv(user_log_path)
+                    user_df = user_df[user_df["Email"] != email]  # Remove old entry
+                    user_df = pd.concat([user_df, pd.DataFrame([login_data])], ignore_index=True)
+                else:
+                    user_df = pd.DataFrame([login_data])
+
+                user_df.to_csv(user_log_path, index=False)
+
+                st.success(f"✅ Welcome, {email}")
+                st.rerun()
             else:
-                st.session_state.expenses = []
-
-            st.success(f"✅ Welcome, {email}")
-            st.rerun()
+                st.error("❌ Incorrect password")
         else:
-            st.warning("⚠️ Please enter both email and password")
+            st.error("❌ Email not found")
 
     st.stop()
 
@@ -145,7 +174,12 @@ if st.sidebar.button("Logout"):
     st.session_state.expenses = []
     st.rerun()
 
+    
+                
 
+       
+
+   
        
    
 
