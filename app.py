@@ -1,4 +1,4 @@
-# Expensify Lite v2 – Smart Expense Tracker with Secure Manual Login + Daily/Monthly Summary + CSV Save + User Tracker
+# Expensify Lite v2 – Smart Expense Tracker with Secure Manual Login + Daily/Monthly Summary + CSV Save + User Tracker + Sign-Up
 
 import streamlit as st
 import pandas as pd
@@ -23,60 +23,76 @@ if "logged_in" not in st.session_state:
     st.session_state.user = None
     st.session_state.expenses = []
 
-# Dummy user database (replace with secure DB or OAuth later)
-users_db = {
-    "zaina@gmail.com": "zaina123",
-    "test@example.com": "test123"
-}
+if "users_db" not in st.session_state:
+    st.session_state.users_db = {
+        "zaina@gmail.com": "zaina123",
+        "test@example.com": "test123"
+    }
 
 # -------------------------
-# LOGIN PAGE
+# SIGN-UP PAGE
 # -------------------------
 if not st.session_state.logged_in:
-    st.title("🔐 Login to Expensify Lite")
+    st.title("🔐 Login or Sign Up to Expensify Lite")
 
-    email = st.text_input("Email").strip()
-    password = st.text_input("Password", type="password").strip()
+    tabs = st.tabs(["Login", "Sign Up"])
 
-    if st.button("Login"):
-        if email in users_db:
-            if password == users_db[email]:
-                st.session_state.logged_in = True
-                st.session_state.user = email
+    with tabs[0]:
+        email = st.text_input("Email", key="login_email").strip()
+        password = st.text_input("Password", type="password", key="login_password").strip()
 
-                # Load previous data if exists
-                file_path = f"expenses/{email.replace('@', '_at_')}.csv"
-                if os.path.exists(file_path):
-                    st.session_state.expenses = pd.read_csv(file_path).to_dict("records")
+        if st.button("Login"):
+            if email in st.session_state.users_db:
+                if password == st.session_state.users_db[email]:
+                    st.session_state.logged_in = True
+                    st.session_state.user = email
+
+                    # Load previous data if exists
+                    file_path = f"expenses/{email.replace('@', '_at_')}.csv"
+                    if os.path.exists(file_path):
+                        st.session_state.expenses = pd.read_csv(file_path).to_dict("records")
+                    else:
+                        st.session_state.expenses = []
+
+                    # User tracking log
+                    user_log_path = "users/expensify_users.csv"
+                    os.makedirs("users", exist_ok=True)
+
+                    login_data = {
+                        "Email": email,
+                        "Login Time": now.strftime("%Y-%m-%d %I:%M:%S %p"),
+                        "Total Expenses": len(st.session_state.expenses),
+                        "Last Updated": now.strftime("%Y-%m-%d")
+                    }
+
+                    if os.path.exists(user_log_path):
+                        user_df = pd.read_csv(user_log_path)
+                        user_df = user_df[user_df["Email"] != email]  # Remove old entry
+                        user_df = pd.concat([user_df, pd.DataFrame([login_data])], ignore_index=True)
+                    else:
+                        user_df = pd.DataFrame([login_data])
+
+                    user_df.to_csv(user_log_path, index=False)
+
+                    st.success(f"✅ Welcome, {email}")
+                    st.rerun()
                 else:
-                    st.session_state.expenses = []
-
-                # User tracking log
-                user_log_path = "users/expensify_users.csv"
-                os.makedirs("users", exist_ok=True)
-
-                login_data = {
-                    "Email": email,
-                    "Login Time": now.strftime("%Y-%m-%d %I:%M:%S %p"),
-                    "Total Expenses": len(st.session_state.expenses),
-                    "Last Updated": now.strftime("%Y-%m-%d")
-                }
-
-                if os.path.exists(user_log_path):
-                    user_df = pd.read_csv(user_log_path)
-                    user_df = user_df[user_df["Email"] != email]  # Remove old entry
-                    user_df = pd.concat([user_df, pd.DataFrame([login_data])], ignore_index=True)
-                else:
-                    user_df = pd.DataFrame([login_data])
-
-                user_df.to_csv(user_log_path, index=False)
-
-                st.success(f"✅ Welcome, {email}")
-                st.rerun()
+                    st.error("❌ Incorrect password")
             else:
-                st.error("❌ Incorrect password")
-        else:
-            st.error("❌ Email not found")
+                st.error("❌ Email not found")
+
+    with tabs[1]:
+        new_email = st.text_input("New Email", key="signup_email").strip()
+        new_password = st.text_input("New Password", type="password", key="signup_password").strip()
+
+        if st.button("Sign Up"):
+            if new_email in st.session_state.users_db:
+                st.warning("⚠️ Email already registered. Please log in.")
+            elif not new_email or not new_password:
+                st.warning("⚠️ Please enter both email and password.")
+            else:
+                st.session_state.users_db[new_email] = new_password
+                st.success("✅ Account created! Please login now.")
 
     st.stop()
 
@@ -173,8 +189,10 @@ if st.sidebar.button("Logout"):
     st.session_state.user = None
     st.session_state.expenses = []
     st.rerun()
+   
 
-    
+
+
                 
 
        
