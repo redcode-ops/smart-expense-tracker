@@ -34,7 +34,7 @@ if not st.session_state.logged_in:
             st.session_state.logged_in = True
             st.session_state.user = email
             st.success(f"✅ Welcome, {email}")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.warning("⚠️ Please enter both email and password")
 
