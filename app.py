@@ -1,7 +1,10 @@
+# Expensify Lite v2 – Smart Expense Tracker with Login + Daily/Monthly Summary + CSV Save
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime
 import pytz
+import os
 
 # -------------------------
 # Page Setup
@@ -33,6 +36,14 @@ if not st.session_state.logged_in:
         if email and password:
             st.session_state.logged_in = True
             st.session_state.user = email
+
+            # Load previous data if exists
+            file_path = f"expenses/{email.replace('@', '_at_')}.csv"
+            if os.path.exists(file_path):
+                st.session_state.expenses = pd.read_csv(file_path).to_dict("records")
+            else:
+                st.session_state.expenses = []
+
             st.success(f"✅ Welcome, {email}")
             st.rerun()
         else:
@@ -51,6 +62,8 @@ st.markdown(f"**🕒 Time (IST):** {now.strftime('%I:%M:%S %p')}")
 # -------------------------
 # Add Expense Form
 # -------------------------
+file_path = f"expenses/{st.session_state.user.replace('@', '_at_')}.csv"
+
 with st.form("Add Expense"):
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -71,6 +84,11 @@ with st.form("Add Expense"):
         })
         st.success("✅ Expense added!")
 
+        # Save to CSV
+        df_all = pd.DataFrame(st.session_state.expenses)
+        os.makedirs("expenses", exist_ok=True)
+        df_all.to_csv(file_path, index=False)
+
 # -------------------------
 # Filter & Search
 # -------------------------
@@ -85,26 +103,35 @@ else:
 # -------------------------
 if filtered:
     df = pd.DataFrame(filtered)
-    st.write("🧾 **Your Expenses**")
+    st.write("🧳️ **Your Expenses**")
     st.dataframe(df, use_container_width=True)
 
-    # Total Spend
     total = sum(e["Amount"] for e in filtered)
     st.metric("💰 Total Spent", f"₹{total:.2f}")
 
-    # Category Chart
     cat_df = df.groupby("Category")["Amount"].sum().reset_index()
     st.subheader("📊 Spend by Category")
     st.bar_chart(cat_df, x="Category", y="Amount")
 
-    # Download CSV
+    # --- DAILY SPEND SUMMARY ---
+    df["Date"] = pd.to_datetime(df["Date"])
+    daily = df.groupby(df["Date"].dt.date)["Amount"].sum().reset_index()
+    st.subheader("🗓️ Daily Spend Summary")
+    st.dataframe(daily, use_container_width=True)
+    st.bar_chart(daily, x="Date", y="Amount")
+
+    # --- MONTHLY SPEND SUMMARY ---
+    df["Month"] = df["Date"].dt.strftime('%B %Y')
+    monthly = df.groupby("Month")["Amount"].sum().reset_index()
+    st.subheader("📆 Monthly Spend Summary")
+    st.dataframe(monthly, use_container_width=True)
+    st.bar_chart(monthly, x="Month", y="Amount")
+
+    # --- DOWNLOAD BUTTON ---
     csv = df.to_csv(index=False).encode()
-    st.download_button(
-        label="⬇️ Download CSV",
-        data=csv,
-        file_name=f"{st.session_state.user}_expenses.csv",
-        mime="text/csv"
-    )
+    st.download_button("⬇️ Download CSV", data=csv,
+                       file_name=f"{st.session_state.user}_expenses.csv",
+                       mime="text/csv")
 else:
     st.info("No expenses yet.")
 
@@ -116,7 +143,11 @@ if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
     st.session_state.user = None
     st.session_state.expenses = []
-    st.experimental_rerun()
+    st.rerun()
+
+
+       
+   
 
            
 
