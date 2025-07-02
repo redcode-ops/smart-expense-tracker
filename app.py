@@ -1,4 +1,4 @@
-# Expensify Lite v2 – Enhanced UI with CSS Styling
+# Expensify Lite v2 – Persistent User Auth + UI Enhancements + Feedback Box
 
 import streamlit as st
 import pandas as pd
@@ -36,6 +36,19 @@ india_timezone = pytz.timezone('Asia/Kolkata')
 now = datetime.now(india_timezone)
 
 # -------------------------
+# Load/Save Users
+# -------------------------
+user_db_file = "data/users.csv"
+os.makedirs("data", exist_ok=True)
+
+if os.path.exists(user_db_file):
+    user_df = pd.read_csv(user_db_file)
+    users_db = dict(zip(user_df["Email"], user_df["Password"]))
+else:
+    users_db = {}
+    pd.DataFrame(columns=["Email", "Password"]).to_csv(user_db_file, index=False)
+
+# -------------------------
 # Session State Setup
 # -------------------------
 if "logged_in" not in st.session_state:
@@ -43,14 +56,8 @@ if "logged_in" not in st.session_state:
     st.session_state.user = None
     st.session_state.expenses = []
 
-if "users_db" not in st.session_state:
-    st.session_state.users_db = {
-        "zaina@gmail.com": "zaina123",
-        "test@example.com": "test123"
-    }
-
 # -------------------------
-# SIGN-UP PAGE
+# SIGN-UP / LOGIN SYSTEM
 # -------------------------
 if not st.session_state.logged_in:
     st.markdown("""<h2 style='text-align:center;'>Welcome to <span style='color:#27ae60;'>Expensify Lite</span></h2>""", unsafe_allow_html=True)
@@ -62,8 +69,8 @@ if not st.session_state.logged_in:
         password = st.text_input("Password", type="password", key="login_password").strip()
 
         if st.button("Login"):
-            if email in st.session_state.users_db:
-                if password == st.session_state.users_db[email]:
+            if email in users_db:
+                if password == users_db[email]:
                     st.session_state.logged_in = True
                     st.session_state.user = email
 
@@ -75,7 +82,6 @@ if not st.session_state.logged_in:
 
                     user_log_path = "users/expensify_users.csv"
                     os.makedirs("users", exist_ok=True)
-
                     login_data = {
                         "Email": email,
                         "Login Time": now.strftime("%Y-%m-%d %I:%M:%S %p"),
@@ -103,12 +109,13 @@ if not st.session_state.logged_in:
         new_password = st.text_input("New Password", type="password", key="signup_password").strip()
 
         if st.button("Sign Up"):
-            if new_email in st.session_state.users_db:
+            if new_email in users_db:
                 st.warning("⚠️ Email already registered. Please log in.")
             elif not new_email or not new_password:
                 st.warning("⚠️ Please enter both email and password.")
             else:
-                st.session_state.users_db[new_email] = new_password
+                new_entry = pd.DataFrame([[new_email, new_password]], columns=["Email", "Password"])
+                new_entry.to_csv(user_db_file, mode='a', index=False, header=False)
                 st.success("✅ Account created! Please login now.")
 
     st.stop()
@@ -192,6 +199,30 @@ else:
     st.info("No expenses yet.")
 
 # -------------------------
+# Feedback Section
+# -------------------------
+st.markdown("""<hr><h4>💬 Got Feedback?</h4>""", unsafe_allow_html=True)
+with st.form("Feedback"):
+    feedback = st.text_area("Share your thoughts to help us improve:", placeholder="This app is great but I wish it had...")
+    send = st.form_submit_button("Send Feedback")
+
+    if send and feedback:
+        feedback_path = "data/feedback.csv"
+        os.makedirs("data", exist_ok=True)
+        feedback_df = pd.DataFrame([{
+            "Email": st.session_state.user,
+            "Feedback": feedback,
+            "Time": now.strftime("%Y-%m-%d %I:%M:%S %p")
+        }])
+        if os.path.exists(feedback_path):
+            old_df = pd.read_csv(feedback_path)
+            all_df = pd.concat([old_df, feedback_df], ignore_index=True)
+        else:
+            all_df = feedback_df
+        all_df.to_csv(feedback_path, index=False)
+        st.success("✅ Thanks for your feedback!")
+
+# -------------------------
 # Logout
 # -------------------------
 st.sidebar.title("🔓 Logout")
@@ -200,3 +231,7 @@ if st.sidebar.button("Logout"):
     st.session_state.user = None
     st.session_state.expenses = []
     st.rerun()
+           
+
+  
+    
